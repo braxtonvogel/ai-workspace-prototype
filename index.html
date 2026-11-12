@@ -1,0 +1,1194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Trio Workspace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+          mono: ['JetBrains Mono', 'ui-monospace', 'Consolas', 'monospace'],
+        },
+        colors: {
+          ink: Object.fromEntries([950, 900, 850, 800, 700, 600].map((k) => [k, `rgb(var(--ink-${k}) / <alpha-value>)`])),
+          neutral: Object.fromEntries([100, 200, 300, 400, 500, 600].map((k) => [k, `rgb(var(--n-${k}) / <alpha-value>)`])),
+          fg: 'rgb(var(--fg) / <alpha-value>)',
+          accent: '#2f5bea',
+        },
+      },
+    },
+  };
+</script>
+<script>
+  /* apply the saved theme before first paint (dark is the default) */
+  (function () {
+    try { if (localStorage.getItem('trio-theme') === 'light') document.documentElement.classList.add('light'); } catch (e) {}
+  })();
+</script>
+<style>
+  :root {
+    --ink-950: 6 6 7; --ink-900: 11 11 13; --ink-850: 15 15 18; --ink-800: 20 20 23; --ink-700: 28 28 32; --ink-600: 39 39 44;
+    --n-100: 245 245 245; --n-200: 229 229 229; --n-300: 212 212 212; --n-400: 163 163 163; --n-500: 115 115 115; --n-600: 82 82 82;
+    --fg: 255 255 255;
+    --tk-kw: #c792ea; --tk-fn: #82aaff; --tk-str: #c3e88d; --tk-cm: #6b7280;
+    --thumb: #27272c;
+    color-scheme: dark;
+  }
+  html.light {
+    --ink-950: 240 241 245; --ink-900: 255 255 255; --ink-850: 247 247 250; --ink-800: 241 242 246; --ink-700: 232 234 240; --ink-600: 214 217 226;
+    --n-100: 20 20 26; --n-200: 34 34 42; --n-300: 58 58 70; --n-400: 98 99 112; --n-500: 122 124 138; --n-600: 160 162 175;
+    --fg: 18 18 30;
+    --tk-kw: #8e3fc0; --tk-fn: #1d4fd8; --tk-str: #2f7d32; --tk-cm: #7b8190;
+    --thumb: #c9ccd6;
+    color-scheme: light;
+  }
+  html, body, #root { height: 100%; }
+  body { background: rgb(var(--ink-950)); margin: 0; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: var(--thumb); border-radius: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  html.light .char-grok { filter: drop-shadow(0 0 .6px rgba(0,0,0,.75)) drop-shadow(0 1px 1.5px rgba(0,0,0,.25)); }
+  /* motion: ~200-320ms, springy where it should feel alive */
+  @keyframes flyIn { from { transform: translate(var(--fx, 0px), var(--fy, -60px)) scale(.34); opacity: .2 } to { transform: none; opacity: 1 } }
+  @keyframes flyOut { from { transform: none; opacity: 1 } to { transform: translate(var(--fx, 0px), var(--fy, -60px)) scale(.34); opacity: 0 } }
+  @keyframes bubbleIn { from { opacity: 0; transform: scale(.86) translateY(-6px) } to { opacity: 1; transform: none } }
+  @keyframes bubbleOut { to { opacity: 0; transform: scale(.92) translateY(-4px) } }
+  @keyframes petBounce {
+    0% { transform: translateY(0) scale(1,1); animation-timing-function: cubic-bezier(.2,.8,.3,1) }
+    14% { transform: translateY(-8px) scale(.94,1.08); animation-timing-function: cubic-bezier(.5,0,.9,.6) }
+    28% { transform: translateY(0) scale(1.1,.88); animation-timing-function: cubic-bezier(.2,.8,.3,1) }
+    40% { transform: translateY(-3.5px) scale(.98,1.03); animation-timing-function: cubic-bezier(.5,0,.9,.6) }
+    52% { transform: translateY(0) scale(1.03,.97) }
+    62%, 100% { transform: translateY(0) scale(1,1) }
+  }
+  @keyframes petFloat { 50% { transform: translateY(-4px) } }
+  @keyframes outlineIn { from { opacity: 0; transform: scale(.7) } to { opacity: 1; transform: none } }
+  @keyframes orb { 50% { transform: scale(1.08); box-shadow: 0 0 44px #3b6df0aa } }
+  @keyframes ring { 0%{transform:scale(1);opacity:.55} 100%{transform:scale(1.9);opacity:0} }
+  @keyframes drift { 0%{transform:translate(0,0)} 25%{transform:translate(70px,-40px)} 50%{transform:translate(20px,50px)} 75%{transform:translate(-60px,20px)} 100%{transform:translate(0,0)} }
+  @keyframes dots { 0%,80%,100%{opacity:.25} 40%{opacity:1} }
+  @keyframes fadeUp { from{opacity:0;transform:translate(-50%,8px)} to{opacity:1;transform:translate(-50%,0)} }
+  .fly-in { animation: flyIn .32s cubic-bezier(.2,.9,.3,1.12) both; }
+  .fly-out { animation: flyOut .26s cubic-bezier(.45,0,.7,.2) forwards; }
+  .bubble-in { transform-origin: top right; animation: bubbleIn .24s cubic-bezier(.2,.9,.3,1.1) .1s both; }
+  .bubble-out { transform-origin: top right; animation: bubbleOut .18s ease-in forwards; }
+  .outline-in { animation: outlineIn .2s ease-out both; }
+  .pop-in { animation: bubbleIn .22s cubic-bezier(.2,.9,.3,1.1) both; }
+  .fade-in { animation: outlineIn .18s ease-out both; }
+  .pet-bounce { animation: petBounce 1.4s infinite; transform-origin: 50% 100%; }
+  .pet-float { animation: petFloat 2.6s ease-in-out .35s infinite; }
+  .lift { transition: transform .2s cubic-bezier(.2,.9,.3,1.2), filter .2s; }
+  .lift:hover { transform: translateY(-3px) scale(1.12); }
+  .theme-fade, .theme-fade * { transition: background-color .25s ease, border-color .25s ease, color .25s ease; }
+  .orb { background: radial-gradient(circle at 35% 30%, #a9c6ff, #3b6df0 55%, #1a2f7a); animation: orb 2.4s ease-in-out infinite; }
+  .orb-ring { animation: ring 2.4s ease-out infinite; }
+  .cursor-drift { animation: drift 9s ease-in-out infinite; }
+  .dot { animation: dots 1.2s infinite; }
+  .toast { animation: fadeUp .2s ease-out both; }
+  .scroll-mask { -webkit-mask-image: linear-gradient(to bottom, transparent, #000 22px); mask-image: linear-gradient(to bottom, transparent, #000 22px); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.26.4/babel.min.js"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef, useCallback } = React;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+/* ------------------------------------------------------------------ */
+/* Icons                                                               */
+/* ------------------------------------------------------------------ */
+const PATHS = {
+  edit: <><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.4 2.6a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4Z" /></>,
+  graph: <><circle cx="12" cy="5" r="2.3" /><circle cx="5" cy="18" r="2.3" /><circle cx="19" cy="18" r="2.3" /><path d="m11 7.2-5 8.6M13 7.2l5 8.6M7.5 18h9" /></>,
+  search: <><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>,
+  chevUp: <path d="m6 15 6-6 6 6" />,
+  chevDown: <path d="m6 9 6 6 6-6" />,
+  folder: <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />,
+  chat: <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z" />,
+  layout: <><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="14" y="4" width="6" height="7" rx="1.5" /><path d="M4 16h16M4 20h10" /></>,
+  bag: <><path d="M6 8h12l1 12H5Z" /><path d="M9 8a3 3 0 0 1 6 0" /></>,
+  tag: <><path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9Z" /><circle cx="8" cy="8" r="1.2" /></>,
+  gear: <><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1" /></>,
+  puzzle: <path d="M19.4 11H18V8a2 2 0 0 0-2-2h-3V4.6a2.6 2.6 0 0 0-5.2 0V6H5a2 2 0 0 0-2 2v3h1.4a2.6 2.6 0 0 1 0 5.2H3V19a2 2 0 0 0 2 2h3v-1.4a2.6 2.6 0 0 1 5.2 0V21h3a2 2 0 0 0 2-2v-3h1.4a2.6 2.6 0 0 0 0-5.2Z" />,
+  clip: <path d="m21 11.5-8.6 8.6a5 5 0 0 1-7-7l8.6-8.6a3.3 3.3 0 0 1 4.7 4.7l-8.6 8.6a1.7 1.7 0 0 1-2.4-2.4l7.9-7.9" />,
+  at: <><circle cx="12" cy="12" r="3.5" /><path d="M15.5 8.5v4.2a2.3 2.3 0 0 0 4.5 0V12a8 8 0 1 0-3.2 6.4" /></>,
+  mic: <><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></>,
+  send: <path d="M21 3 10 14M21 3l-7 18-4-7-7-4Z" />,
+  arrowL: <path d="M19 12H5m6-6-6 6 6 6" />,
+  arrowR: <path d="M5 12h14m-6-6 6 6-6 6" />,
+  lock: <><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></>,
+  kebab: <><circle cx="12" cy="5" r="1.2" fill="currentColor" /><circle cx="12" cy="12" r="1.2" fill="currentColor" /><circle cx="12" cy="19" r="1.2" fill="currentColor" /></>,
+  plus: <path d="M12 5v14M5 12h14" />,
+  x: <path d="m6 6 12 12M18 6 6 18" />,
+  scatter: <><circle cx="6" cy="17" r="1.4" fill="currentColor" /><circle cx="10" cy="8" r="1.4" fill="currentColor" /><circle cx="15" cy="13" r="1.4" fill="currentColor" /><circle cx="18" cy="6" r="1.4" fill="currentColor" /><circle cx="19" cy="18" r="1.4" fill="currentColor" /></>,
+  share: <><circle cx="18" cy="5" r="2.5" /><circle cx="6" cy="12" r="2.5" /><circle cx="18" cy="19" r="2.5" /><path d="m8.2 10.8 7.6-4.6M8.2 13.2l7.6 4.6" /></>,
+  file: <><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" /><path d="M14 3v5h5" /></>,
+  code: <path d="m8 8-4 4 4 4M16 8l4 4-4 4" />,
+  branch: <><circle cx="6" cy="6" r="2" /><circle cx="6" cy="18" r="2" /><circle cx="18" cy="8" r="2" /><path d="M6 8v8M18 10c0 4-6 3-10 6" /></>,
+  user: <><circle cx="12" cy="8" r="3.5" /><path d="M5 20a7 7 0 0 1 14 0" /></>,
+  minus: <path d="M5 12h14" />,
+  check: <path d="m5 12 5 5 9-10" />,
+  sun: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></>,
+  moon: <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" />,
+  chevsL: <path d="m11 17-5-5 5-5M18 17l-5-5 5-5" />,
+  chevsR: <path d="m6 17 5-5-5-5M13 17l5-5-5-5" />,
+  command: <path d="M9 6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3Z" />,
+};
+function Ico({ n, size = 20, sw = 1.6, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      {PATHS[n]}
+    </svg>
+  );
+}
+function CursorIcon({ className = '' }) {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" className={className}>
+      <path d="M4 2.5 19 10l-7 2-2.2 7.5Z" fill="#9ec0ff" stroke="#1a2f7a" strokeWidth="1.2" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Characters (images embedded as base64 at the bottom of the file)    */
+/* ------------------------------------------------------------------ */
+function Char({ id, size = 32 }) {
+  return (
+    <img src={window.TRIO_IMG[id]} alt="" draggable="false" width={size} height={size}
+      className={`block select-none object-contain ${id === 'grok' ? 'char-grok' : ''}`}
+      style={{ width: size, height: size }} />
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Models + fake replies                                               */
+/* ------------------------------------------------------------------ */
+const COL = { grok: '#f4f4f5', gpt: '#2f63e8', claude: '#e2733f' };
+const MODELS = {
+  grok: { name: 'Grok Bot' },
+  gpt: { name: 'ChatGPT' },
+  claude: { name: 'Claude' },
+};
+const MODEL_KEYS = ['grok', 'gpt', 'claude'];
+const snippet = (t) => { const s = t.trim().replace(/\s+/g, ' '); return s.length > 48 ? s.slice(0, 45) + '…' : s; };
+let replyCount = 0;
+function fakeReply(m, text) {
+  const s = snippet(text);
+  replyCount++;
+  if (m === 'grok')
+    return [`Honestly? "${s}" comes down to one thing: keep it small and ship. Measure after, not before. Want me to rough it out?`,
+      `Quick take on "${s}": skip the over-engineering, do the boring version first, and tell me where it hurts.`][replyCount % 2];
+  if (m === 'gpt')
+    return `Great question. Here's a quick breakdown of "${s}":\n1. Clarify the goal\n2. List the constraints\n3. Pick the simplest option that works\n\nWant me to expand on any of these?`;
+  return `I'd approach "${s}" in two steps: isolate the smallest reproducible piece, then iterate.\n\n\`\`\`js\n// sketch\nconst result = await run(input);\nconsole.log(result);\n\`\`\`\nHappy to go through it line by line.`;
+}
+function resolveModel(sel, text) {
+  if (sel !== 'auto') return sel;
+  if (/code|bug|api|error|fix|react|function/i.test(text)) return 'claude';
+  if (/plan|trip|flight|image|summar|voice|schedule/i.test(text)) return 'gpt';
+  return MODEL_KEYS[replyCount % 3];
+}
+
+/* ------------------------------------------------------------------ */
+/* Graph data + force simulation (no libraries)                        */
+/* ------------------------------------------------------------------ */
+function mulberry(a) { return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+const dateLabel = (days) => new Date(2026, 10, 11 - days).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+// chat model: 'grok' | 'gpt' | 'claude', or 'a+b' for a mixed chat (drawn half-and-half)
+const PROJECTS = [
+  { id: 'portfolio', label: 'Portfolio site', chats: [['Hero section redesign', 'grok', 2], ['Lighthouse score audit', 'grok', 5], ['Dark mode toggle', 'claude', 9], ['Project cards grid', 'grok+gpt', 12], ['SEO meta tags', 'grok', 15], ['Contact form validation', 'gpt', 20], ['Deploy to Vercel', 'grok', 26]] },
+  { id: 'offsite', label: 'Offsite trip', chats: [['Offsite flight plan', 'gpt', 1], ['Hotel shortlist', 'gpt', 3], ['Agenda draft', 'grok', 4], ['Budget estimate', 'gpt+claude', 6], ['Dinner options', 'gpt', 8], ['Packing list', 'gpt', 10]] },
+  { id: 'octopus', label: 'Octopus training', lines: ['Octopus', 'training'], chats: [['Training roadmap', 'gpt', 2], ['Module 3 recap', 'claude', 7], ['Quiz prep', 'claude', 11], ['Lab notes', 'gpt', 18], ['Cert checklist', 'gpt+claude', 24], ['Study guide', 'claude', 29], ['Practice exam', 'gpt', 33]] },
+  { id: 'ibm', label: 'IBM Bob', chats: [['Bob agent setup', 'claude', 1], ['Watsonx prompt tuning', 'claude+gpt', 4], ['Mainframe basics', 'claude', 8], ['Onboarding checklist', 'claude', 12], ['Sprint demo script', 'claude', 16], ['COBOL refresher', 'grok', 22]] },
+  { id: 'shsu', label: 'SHSU', chats: [['Data structures notes', 'gpt', 3], ['Calc II homework', 'gpt', 6], ['Study schedule', 'grok', 9], ['Group project plan', 'grok+gpt', 14], ['Essay outline', 'grok', 19], ['Lab 2 write-up', 'gpt', 21], ['Finals prep', 'grok', 28]] },
+  { id: 'clear', label: 'Clear Measure', lines: ['Clear', 'Measure'], chats: [['Apprentice onboarding', 'gpt', 2], ['Weekly standup notes', 'gpt', 9], ['Code review prep', 'gpt', 13], ['Testing strategy', 'claude', 17], ['Pairing notes', 'gpt+claude', 7], ['Retro summary', 'grok', 20]] },
+  { id: 'taskflow', label: 'TaskFlow', chats: [['TaskFlow cold start fix', 'claude', 0], ['TaskFlow API bug', 'claude', 5], ['Docker build', 'grok', 3], ['Seed data script', 'grok', 6], ['README polish', 'grok', 10], ['Auth middleware', 'gpt', 12]] },
+];
+const PRIORITY = ['gpt', 'grok', 'claude'];
+const byPriority = (list) => [...list].sort((x, y) => PRIORITY.indexOf(x) - PRIORITY.indexOf(y));
+
+// the AI used most in a project; two AIs used about equally -> half-and-half
+function dominantAI(chats) {
+  const t = { grok: 0, gpt: 0, claude: 0 };
+  chats.forEach(([, m]) => { const ms = m.split('+'); ms.forEach((x) => { t[x] += 1 / ms.length; }); });
+  const s = Object.entries(t).sort((a, b) => b[1] - a[1]);
+  if (s[1][1] >= s[0][1] * 0.85) { const pair = byPriority([s[0][0], s[1][0]]); return { model: pair[0], pair }; }
+  return { model: s[0][0] };
+}
+
+const RING_R = 255;
+function buildGraph() {
+  const rnd = mulberry(5);
+  const nodes = [], links = [], byId = {};
+  const add = (n) => { Object.assign(n, { vx: 0, vy: 0 }); nodes.push(n); byId[n.id] = n; return n; };
+  const link = (a, b, rest, k, type) => links.push({ a, b, rest, k, type });
+
+  const me = add({ id: 'core', kind: 'center', label: 'Me', model: 'grok', x: 0, y: 0, r: 11, q: 0, pinned: true });
+  PROJECTS.forEach((p, i) => {
+    const a = (i / PROJECTS.length) * Math.PI * 2 - Math.PI / 2;
+    const tx = Math.cos(a) * RING_R, ty = Math.sin(a) * RING_R;
+    const dom = dominantAI(p.chats);
+    const hub = add({ id: p.id, kind: 'hub', label: p.label, lines: p.lines || [p.label], model: dom.model, pair: dom.pair, x: tx, y: ty, tx, ty, r: 20, q: 2600, count: p.chats.length });
+    link(hub, me, RING_R, 0.02, 'spoke');
+    const leaves = [];
+    p.chats.forEach(([title, m, days], j) => {
+      const ms = byPriority(m.split('+'));
+      const la = a + (j / p.chats.length) * Math.PI * 2 + 0.3;
+      const leaf = add({ id: `${p.id}-${j}`, kind: 'chat', title, project: p.label, model: ms[0], pair: ms.length > 1 ? ms : undefined, days, date: dateLabel(days), x: tx + Math.cos(la) * 62, y: ty + Math.sin(la) * 62, r: 6.5, q: 520, hub: p.id });
+      link(leaf, hub, 62, 0.14, 'chat');
+      leaves.push(leaf);
+    });
+    // related chats inside a project get an even fainter link
+    leaves.forEach((l, j) => { if (rnd() < 0.55) link(l, leaves[(j + 2) % leaves.length], 70, 0.01, 'related'); });
+  });
+
+  const g = { nodes, links, byId, alpha: 1, view: { x: 0, y: 0, k: 1 }, hover: null, press: null, fitted: false };
+  for (let i = 0; i < 320; i++) tick(g);
+  g.alpha = 0.2;
+  return g;
+}
+
+function tick(g) {
+  const { nodes, links } = g;
+  const a = g.alpha;
+  const dragged = g.press && g.press.moved ? g.press.n : null;
+  for (let i = 0; i < nodes.length; i++) {
+    const ni = nodes[i];
+    for (let j = i + 1; j < nodes.length; j++) {
+      const nj = nodes[j];
+      let dx = nj.x - ni.x, dy = nj.y - ni.y;
+      let d2 = dx * dx + dy * dy;
+      if (d2 > 60000) continue;
+      const s = Math.sqrt(ni.q * nj.q);
+      if (!s) continue;
+      if (d2 < 16) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; d2 = 16; }
+      const d = Math.sqrt(d2);
+      const f = Math.min((s / d2) * a, 3);
+      const fx = (dx / d) * f, fy = (dy / d) * f;
+      ni.vx -= fx; ni.vy -= fy; nj.vx += fx; nj.vy += fy;
+    }
+  }
+  for (const l of links) {
+    const dx = l.b.x - l.a.x, dy = l.b.y - l.a.y;
+    const d = Math.sqrt(dx * dx + dy * dy) || 1;
+    const f = ((d - l.rest) / d) * l.k * a;
+    const fx = dx * f, fy = dy * f;
+    l.a.vx += fx; l.a.vy += fy; l.b.vx -= fx; l.b.vy -= fy;
+  }
+  for (const n of nodes) {
+    if (n.kind === 'hub') { n.vx += (n.tx - n.x) * 0.09 * a; n.vy += (n.ty - n.y) * 0.09 * a; }
+    if (n.pinned || n === dragged) { n.vx = n.vy = 0; continue; }
+    n.vx *= 0.78; n.vy *= 0.78;
+    n.x += n.vx; n.y += n.vy;
+  }
+  g.alpha *= 0.985;
+}
+
+function fitView(g, w, h) {
+  let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+  for (const n of g.nodes) { x0 = Math.min(x0, n.x); x1 = Math.max(x1, n.x); y0 = Math.min(y0, n.y); y1 = Math.max(y1, n.y); }
+  const k = clamp(Math.min(w / (x1 - x0 + 130), h / (y1 - y0 + 170)), 0.4, 1.4);
+  g.view = { k, x: -((x0 + x1) / 2) * k, y: -((y0 + y1) / 2) * k };
+}
+let GRAPH = null;
+const getGraph = () => (GRAPH ||= buildGraph());
+
+const visAlpha = (n, o) => {
+  let a = 1;
+  const leaf = n.kind === 'chat';
+  if (o.filter === 'projects' && leaf) a = 0.12;
+  if (o.filter === 'ai' && (n.kind === 'hub' || n.kind === 'center')) a = 0.25;
+  if (o.range !== 'any' && leaf && n.days > (o.range === '7' ? 7 : 30)) a = Math.min(a, 0.1);
+  return a;
+};
+const inFocus = (n, focus) => !focus || n.kind === 'center' || n.id === focus || n.hub === focus;
+const modelName = (n) => (n.pair ? `Multi-AI (${MODELS[n.pair[0]].name} + ${MODELS[n.pair[1]].name})` : MODELS[n.model].name);
+const tipText = (n) => {
+  if (n.kind === 'center') return 'Me · connects all your projects';
+  if (n.kind === 'hub') return `${n.label} · project · ${n.count} chats · mostly ${n.pair ? `${MODELS[n.pair[0]].name} & ${MODELS[n.pair[1]].name}` : MODELS[n.model].name}`;
+  return `${n.title} — ${modelName(n)} — ${n.date}`;
+};
+const GTHEME = {
+  dark: { fill: { grok: '#f4f4f5', gpt: '#2f63e8', claude: '#e2733f' }, me: '#d4d4d8', link: '170,170,185', label: '#e8e8ea', sub: '#9a9aa5', ring: '#ffffff', outline: null },
+  light: { fill: { grok: '#ffffff', gpt: '#2f63e8', claude: '#e2733f' }, me: '#b9bdc9', link: '70,75,95', label: '#1c1d28', sub: '#6b6f80', ring: '#111119', outline: 'rgba(20,20,40,.45)' },
+};
+const LINK_BASE = { spoke: 0.3, chat: 0.26, related: 0.09 };
+
+function GraphView({ onOpen, theme }) {
+  const wrap = useRef(null), cv = useRef(null), size = useRef({ w: 800, h: 600, dpr: 1 });
+  const [tip, setTip] = useState(null);
+  const [filter, setFilter] = useState('all');
+  const [range, setRange] = useState('any');
+  const [menu, setMenu] = useState(false);
+  const [labels, setLabels] = useState(false);
+  const opts = useRef({}); opts.current = { filter, range, labels, theme };
+
+  useEffect(() => {
+    const g = getGraph(), canvas = cv.current, ctx = canvas.getContext('2d');
+    let raf;
+    const resize = () => {
+      const r = wrap.current.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+      size.current = { w: r.width, h: r.height, dpr };
+      canvas.width = r.width * dpr; canvas.height = r.height * dpr;
+      canvas.style.width = r.width + 'px'; canvas.style.height = r.height + 'px';
+      if (!g.fitted && r.width > 0) { fitView(g, r.width, r.height); g.fitted = true; }
+    };
+    resize();
+    const ro = new ResizeObserver(resize); ro.observe(wrap.current);
+
+    const frame = () => {
+      const { w, h, dpr } = size.current, o = opts.current, T = GTHEME[o.theme] || GTHEME.dark;
+      if (g.alpha > 0.012) tick(g);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+      const { x: vx, y: vy, k } = g.view;
+      ctx.translate(w / 2 + vx, h / 2 + vy); ctx.scale(k, k);
+      const focus = g.hover && g.hover.kind === 'hub' ? g.hover.id : null;
+
+      ctx.lineWidth = 1 / k;
+      for (const l of g.links) {
+        let a = LINK_BASE[l.type] * Math.min(visAlpha(l.a, o), visAlpha(l.b, o));
+        if (focus) a = inFocus(l.a, focus) && inFocus(l.b, focus) ? Math.min(1, a * (l.type === 'spoke' ? 2.4 : 1.7)) : a * 0.5;
+        ctx.strokeStyle = `rgba(${T.link},${a})`;
+        ctx.beginPath(); ctx.moveTo(l.a.x, l.a.y); ctx.lineTo(l.b.x, l.b.y); ctx.stroke();
+      }
+      for (const n of g.nodes) {
+        const hov = g.hover === n;
+        const r = n.r * (hov ? 1.2 : 1);
+        ctx.globalAlpha = visAlpha(n, o) * (inFocus(n, focus) ? 1 : 0.5);
+        if (n.pair) {
+          ctx.fillStyle = T.fill[n.pair[0]]; ctx.beginPath(); ctx.arc(n.x, n.y, r, Math.PI / 2, Math.PI * 1.5); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = T.fill[n.pair[1]]; ctx.beginPath(); ctx.arc(n.x, n.y, r, -Math.PI / 2, Math.PI / 2); ctx.closePath(); ctx.fill();
+        } else {
+          ctx.fillStyle = n.kind === 'center' ? T.me : T.fill[n.model]; ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 6.2832); ctx.fill();
+        }
+        if (T.outline) { ctx.strokeStyle = T.outline; ctx.lineWidth = 1 / k; ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 6.2832); ctx.stroke(); }
+        if (hov) { ctx.strokeStyle = T.ring; ctx.lineWidth = 1.5 / k; ctx.beginPath(); ctx.arc(n.x, n.y, r + 3 / k, 0, 6.2832); ctx.stroke(); }
+        ctx.lineWidth = 1 / k;
+        ctx.textAlign = 'center';
+        if (n.kind === 'hub') {
+          ctx.font = `600 ${13 / k}px Inter, sans-serif`; ctx.fillStyle = T.label;
+          n.lines.forEach((ln, i) => ctx.fillText(ln, n.x, n.y + r + (17 + i * 15) / k));
+        } else if (n.kind === 'center') {
+          ctx.font = `500 ${13 / k}px Inter, sans-serif`; ctx.fillStyle = T.label;
+          ctx.fillText(n.label, n.x, n.y + r + 17 / k);
+        } else if (n.kind === 'chat' && o.labels) {
+          ctx.font = `${10 / k}px Inter, sans-serif`; ctx.fillStyle = T.sub; ctx.textAlign = 'left';
+          ctx.fillText(n.title, n.x + r + 4 / k, n.y + 3 / k);
+        }
+      }
+      ctx.globalAlpha = 1;
+      raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+
+    const onWheel = (e) => {
+      e.preventDefault();
+      const r = canvas.getBoundingClientRect(), mx = e.clientX - r.left - r.width / 2, my = e.clientY - r.top - r.height / 2;
+      const k0 = g.view.k, k1 = clamp(k0 * Math.exp(-e.deltaY * 0.0015), 0.35, 4);
+      g.view.x = mx - (mx - g.view.x) * (k1 / k0); g.view.y = my - (my - g.view.y) * (k1 / k0); g.view.k = k1;
+    };
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); canvas.removeEventListener('wheel', onWheel); };
+  }, []);
+
+  const toWorld = (e) => {
+    const g = getGraph(), r = cv.current.getBoundingClientRect();
+    return { sx: e.clientX - r.left, sy: e.clientY - r.top, x: (e.clientX - r.left - r.width / 2 - g.view.x) / g.view.k, y: (e.clientY - r.top - r.height / 2 - g.view.y) / g.view.k };
+  };
+  const pick = (p) => {
+    const g = getGraph(); let best = null, bd = 1e9;
+    for (const n of g.nodes) {
+      if (visAlpha(n, opts.current) < 0.3) continue;
+      const d = Math.hypot(n.x - p.x, n.y - p.y), rr = Math.max(n.r + 3, 7 / g.view.k);
+      if (d < rr && d < bd) { best = n; bd = d; }
+    }
+    return best;
+  };
+  const onDown = (e) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const g = getGraph(), n = pick(toWorld(e));
+    g.press = { n, sx: e.clientX, sy: e.clientY, vx: g.view.x, vy: g.view.y, moved: false };
+  };
+  const onMove = (e) => {
+    const g = getGraph(), p = toWorld(e), pr = g.press;
+    if (pr) {
+      if (Math.hypot(e.clientX - pr.sx, e.clientY - pr.sy) > 4) pr.moved = true;
+      if (pr.moved) {
+        if (pr.n && !pr.n.pinned) { pr.n.x = p.x; pr.n.y = p.y; pr.n.vx = pr.n.vy = 0; g.alpha = Math.max(g.alpha, 0.3); }
+        else { g.view.x = pr.vx + (e.clientX - pr.sx); g.view.y = pr.vy + (e.clientY - pr.sy); }
+      }
+      setTip(null); return;
+    }
+    const n = pick(p); g.hover = n;
+    setTip(n ? { n, x: p.sx, y: p.sy } : null);
+  };
+  const onUp = () => {
+    const g = getGraph(), pr = g.press; g.press = null;
+    if (pr && pr.moved && pr.n && pr.n.kind === 'hub') { pr.n.tx = pr.n.x; pr.n.ty = pr.n.y; }
+    if (pr && !pr.moved && pr.n) onOpen(pr.n);
+  };
+  const onLeave = () => { const g = getGraph(); if (!g.press) g.hover = null; setTip(null); };
+  const zoomBy = (f) => { const g = getGraph(); g.view.k = clamp(g.view.k * f, 0.35, 4); };
+  const recenter = () => { const g = getGraph(), { w, h } = size.current; fitView(g, w, h); g.alpha = 0.8; };
+
+  const FILTERS = [['all', 'All'], ['projects', 'Projects'], ['ai', 'AI']];
+  const RANGES = { any: 'Date', 7: 'Last 7 days', 30: 'Last 30 days' };
+  const g0 = GRAPH;
+  const dragging = g0 && g0.press && g0.press.moved;
+  const dot = 'h-2.5 w-2.5 rounded-full ring-1 ring-fg/25';
+
+  return (
+    <div ref={wrap} className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-ink-950">
+      <canvas ref={cv} className={`absolute inset-0 touch-none ${tip ? 'cursor-pointer' : dragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+        onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onLeave} />
+      {/* top-left toggles */}
+      <div className="absolute left-4 top-4 flex rounded-lg border border-fg/10 bg-ink-850 p-1 gap-1">
+        <button title="Force layout (re-center)" onClick={recenter} className="grid h-8 w-10 place-items-center rounded-md bg-accent text-white"><Ico n="scatter" size={18} /></button>
+        <button title="Show chat labels" onClick={() => setLabels((v) => !v)} className={`grid h-8 w-10 place-items-center rounded-md ${labels ? 'bg-fg/15 text-fg' : 'text-neutral-400 hover:text-fg'}`}><Ico n="share" size={18} /></button>
+      </div>
+      {/* top-right filters */}
+      <div className="absolute right-4 top-4 flex items-center rounded-lg border border-fg/10 bg-ink-850 p-1 text-sm gap-0.5">
+        {FILTERS.map(([k, l]) => (
+          <button key={k} onClick={() => setFilter(k)} className={`rounded-md px-3 py-1.5 ${filter === k ? 'bg-fg/10 text-fg' : 'text-neutral-400 hover:text-fg'}`}>{l}</button>
+        ))}
+        <div className="relative">
+          <button onClick={() => setMenu((v) => !v)} className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 ${range !== 'any' ? 'bg-fg/10 text-fg' : 'text-neutral-400 hover:text-fg'}`}>{RANGES[range]} <Ico n="chevDown" size={14} /></button>
+          {menu && (
+            <div className="absolute right-0 top-full z-20 mt-2 w-40 rounded-lg border border-fg/10 bg-ink-800 p-1 shadow-xl">
+              {Object.entries(RANGES).map(([k, l]) => (
+                <button key={k} onClick={() => { setRange(k); setMenu(false); }} className="flex w-full items-center justify-between rounded-md px-3 py-1.5 text-left text-neutral-300 hover:bg-fg/5">{k === 'any' ? 'Any time' : l}{range === k && <Ico n="check" size={14} />}</button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      {/* bottom-left controls */}
+      <div className="absolute bottom-4 left-4 flex items-center gap-2 text-xs text-neutral-500">
+        <button onClick={() => zoomBy(1 / 1.25)} className="grid h-7 w-7 place-items-center rounded-md border border-fg/10 bg-ink-850 hover:text-fg"><Ico n="minus" size={14} /></button>
+        <button onClick={() => zoomBy(1.25)} className="grid h-7 w-7 place-items-center rounded-md border border-fg/10 bg-ink-850 hover:text-fg"><Ico n="plus" size={14} /></button>
+        <span className="ml-1">Scroll to zoom · drag to pan · click a node to open</span>
+      </div>
+      {/* legend */}
+      <div className="absolute bottom-14 right-4 flex items-center gap-3 rounded-lg border border-fg/10 bg-ink-850 px-4 py-2.5 text-[13px] text-neutral-300">
+        <span className="flex items-center gap-1.5"><i className={dot} style={{ background: COL.grok }} />Grok Bot</span>
+        <span className="text-neutral-600">/</span>
+        <span className="flex items-center gap-1.5"><i className={dot} style={{ background: COL.gpt }} />ChatGPT</span>
+        <span className="text-neutral-600">/</span>
+        <span className="flex items-center gap-1.5"><i className={dot} style={{ background: COL.claude }} />Claude</span>
+        <span className="text-neutral-600">/</span>
+        <span className="flex items-center gap-1.5"><i className={dot} style={{ background: `linear-gradient(90deg, ${COL.gpt} 50%, ${COL.claude} 50%)` }} />Multi-AI</span>
+      </div>
+      {tip && (
+        <div className="pointer-events-none absolute z-20 max-w-[230px] rounded-lg border border-fg/10 bg-ink-800/95 px-3 py-2 text-[12.5px] leading-snug text-neutral-100 shadow-xl"
+          style={{ left: Math.min(tip.x + 16, (size.current.w || 800) - 240), top: tip.y + 16 }}>{tipText(tip.n)}</div>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Chat content                                                        */
+/* ------------------------------------------------------------------ */
+const INITIAL_CHATS = {
+  c0: { id: 'c0', title: 'Optimize web app', icon: 'chat', messages: [
+    { role: 'user', text: 'How do I optimize this web app?' },
+    { role: 'assistant', model: 'claude', text: 'You can use memoization here:\n```js\nconst memoizedValue = useMemo(() =>\n  computeExpensiveValue(a, b), [a, b]);\n```\nAlso lazy-load the dashboard charts and debounce the filter input.' },
+  ] },
+  c1: { id: 'c1', title: 'Offsite flight plan', icon: 'layout', messages: [
+    { role: 'user', text: 'Find flight options for the offsite in Austin.' },
+    { role: 'assistant', model: 'gpt', text: "Here are three options:\n1. Nonstop, 7:10 a.m. — $214\n2. One stop, 9:40 a.m. — $168\n3. Nonstop, 6:15 p.m. — $231\n\nI'd pick option 1 so the team lands before lunch." },
+  ] },
+  c2: { id: 'c2', title: 'Portfolio fixes', icon: 'bag', messages: [
+    { role: 'user', text: 'My portfolio hero section looks off on mobile.' },
+    { role: 'assistant', model: 'claude', text: 'The headline is overflowing because of a fixed width. Try:\n```css\n.hero h1 { font-size: clamp(2rem, 6vw, 3.5rem); max-width: 100%; }\n```' },
+  ] },
+  c3: { id: 'c3', title: 'TaskFlow API bug', icon: 'tag', messages: [
+    { role: 'user', text: 'POST /tasks returns 500 on empty title.' },
+    { role: 'assistant', model: 'claude', text: 'The handler never validates the body. Add a guard and return a 400 with a helpful message.' },
+  ] },
+};
+
+function CodeBlock({ code }) {
+  const re = /(\b(?:const|let|return|import|from|export|default|function|async|await)\b|'[^']*'|"[^"]*"|\/\/.*|\b\w+(?=\())/g;
+  const parts = code.split(re);
+  return (
+    <pre className="my-2 overflow-x-auto rounded-lg border border-fg/10 bg-ink-950 px-3.5 py-3 font-mono text-[13px] leading-relaxed text-neutral-200">
+      {parts.map((p, i) => {
+        if (i % 2 === 0) return <span key={i}>{p}</span>;
+        let c = 'var(--tk-fn)';
+        if (/^(const|let|return|import|from|export|default|function|async|await)$/.test(p)) c = 'var(--tk-kw)';
+        else if (/^['"]/.test(p)) c = 'var(--tk-str)';
+        else if (p.startsWith('//')) c = 'var(--tk-cm)';
+        return <span key={i} style={{ color: c }}>{p}</span>;
+      })}
+    </pre>
+  );
+}
+function MsgText({ text }) {
+  const segs = text.split(/```(?:\w+)?\n?/);
+  return (
+    <div className="text-[15px] leading-relaxed">
+      {segs.map((s, i) => (i % 2 ? <CodeBlock key={i} code={s.replace(/\n$/, '')} /> : s.trim() ? <p key={i} className="whitespace-pre-wrap">{s.trim()}</p> : null))}
+    </div>
+  );
+}
+
+function ModelMenu({ model, setModel, onClose }) {
+  const opts = [['auto', 'Auto', 'Routes to the best model'], ['grok', 'Grok Bot', ''], ['gpt', 'ChatGPT', ''], ['claude', 'Claude', '']];
+  return (
+    <div className="absolute bottom-full left-0 z-30 mb-2 w-60 rounded-xl border border-fg/10 bg-ink-800 p-1.5 shadow-2xl">
+      {opts.map(([k, l, sub]) => (
+        <button key={k} onClick={() => { setModel(k); onClose(); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-fg/5">
+          <i className="h-2.5 w-2.5 rounded-full ring-1 ring-fg/25" style={{ background: k === 'auto' ? 'conic-gradient(#f4f4f5, #2f63e8, #e2733f, #f4f4f5)' : COL[k] }} />
+          <span className="flex-1"><span className="block text-sm text-neutral-100">{l}</span>{sub && <span className="block text-xs text-neutral-500">{sub}</span>}</span>
+          {model === k && <Ico n="check" size={15} />}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+const EXAMPLE_PROMPTS = [
+  ['Debug my React app', 'code'],
+  ['Summarize my unread Slack', 'chat'],
+  ['Plan my week', 'layout'],
+  ['Explain this error', 'tag'],
+];
+function ChatView({ chat, model, setModel, typing, onSend, onVoice, toast }) {
+  const [text, setText] = useState('');
+  const [open, setOpen] = useState(false);
+  const [dictate, setDictate] = useState(false);
+  const end = useRef(null), input = useRef(null);
+  useEffect(() => { end.current && end.current.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [chat.messages.length, typing]);
+  const submit = () => { if (!text.trim()) return; onSend(text.trim()); setText(''); };
+  // example prompt: fill the composer, then send it a beat later so the fill is visible
+  const usePrompt = (p) => { setText(p); setTimeout(() => { onSend(p); setText(''); }, 220); };
+  const placeholder = model === 'auto' ? '(Grok Bot / ChatGPT / Claude)' : `Message ${MODELS[model].name}…`;
+  return (
+    <div className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-ink-900">
+      <div className="min-h-0 flex-1 overflow-y-auto px-8 pb-6 pt-16">
+        {chat.messages.length === 0 && (
+          <div className="mx-auto mt-8 flex max-w-[560px] flex-col items-center text-center">
+            <div className="mb-5 flex items-end justify-center gap-5"><Char id="grok" size={44} /><Char id="gpt" size={44} /><Char id="claude" size={44} /></div>
+            <div className="text-xl font-medium text-neutral-100">Hi Braxton, what should we work on?</div>
+            <div className="mt-1.5 text-sm text-neutral-400">Try one of these, or type your own below. Auto picks the best model.</div>
+            <div className="mt-7 grid w-full grid-cols-1 gap-3 sm:grid-cols-2">
+              {EXAMPLE_PROMPTS.map(([p, ic]) => (
+                <button key={p} onClick={() => usePrompt(p)} className="lift flex items-center gap-3 rounded-xl border border-fg/10 bg-ink-850 px-4 py-3.5 text-left text-[14.5px] text-neutral-200 hover:border-fg/25 hover:bg-fg/5">
+                  <Ico n={ic} size={18} className="shrink-0 text-neutral-400" />{p}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        <div className="mx-auto flex max-w-[640px] flex-col gap-5">
+          {chat.messages.map((m, i) => m.role === 'user' ? (
+            <div key={i} className="ml-auto max-w-[78%] rounded-xl border border-fg/[.07] bg-ink-700 px-4 py-2.5 text-[15px]">{m.text}</div>
+          ) : (
+            <div key={i} className="max-w-[88%]">
+              <div className="rounded-xl border border-fg/[.07] bg-ink-850 px-4 py-3"><MsgText text={m.text} /></div>
+              <div className="mt-1.5 flex items-center gap-1.5 pl-1 text-[11px] text-neutral-500"><i className="h-2 w-2 rounded-full ring-1 ring-fg/25" style={{ background: COL[m.model] }} />{MODELS[m.model].name}</div>
+            </div>
+          ))}
+          {typing && (
+            <div className="w-fit rounded-xl border border-fg/[.07] bg-ink-850 px-4 py-3">
+              <span className="flex gap-1">{[0, 1, 2].map((i) => <i key={i} className="dot h-1.5 w-1.5 rounded-full bg-neutral-400" style={{ animationDelay: `${i * 0.15}s` }} />)}</span>
+            </div>
+          )}
+          <div ref={end} />
+        </div>
+      </div>
+      <div className="px-5 pb-5">
+        <div className="relative rounded-2xl border border-fg/10 bg-ink-850 px-4 pb-3 pt-3.5">
+          <div className="flex items-center gap-2 text-[15px]">
+            <div className="relative shrink-0">
+              <button onClick={() => setOpen((v) => !v)} className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-neutral-200 hover:bg-fg/5">
+                {model !== 'auto' && <i className="h-2 w-2 rounded-full ring-1 ring-fg/25" style={{ background: COL[model] }} />}
+                {model === 'auto' ? 'Auto' : MODELS[model].name}<Ico n="chevDown" size={15} />
+              </button>
+              {open && <ModelMenu model={model} setModel={setModel} onClose={() => setOpen(false)} />}
+            </div>
+            <input ref={input} value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()}
+              placeholder={placeholder} className="min-w-0 flex-1 bg-transparent text-neutral-100 outline-none placeholder:text-neutral-400" />
+          </div>
+          <div className="mt-4 flex items-center justify-between text-neutral-400">
+            <div className="flex items-center gap-5 pl-1">
+              <button title="Attach" onClick={() => toast('Attachments aren’t wired up in this prototype')} className="hover:text-fg"><Ico n="clip" size={20} /></button>
+              <button title="Mention a model" onClick={() => { setText((t) => t + '@'); input.current && input.current.focus(); }} className="hover:text-fg"><Ico n="at" size={20} /></button>
+              <button title="Dictate" onClick={() => setDictate((v) => !v)} className={dictate ? 'text-red-400' : 'hover:text-fg'}><Ico n="mic" size={20} /></button>
+            </div>
+            <div className="flex items-center gap-3">
+              <button title="Voice mode (ChatGPT)" onClick={onVoice} className="hover:text-fg"><Ico n="mic" size={20} /></button>
+              <button onClick={submit} title="Send" className={`grid h-10 w-10 place-items-center rounded-lg ${text.trim() ? 'bg-accent text-white' : 'bg-fg/5 text-neutral-400'}`}><Ico n="send" size={19} /></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Sidebar                                                             */
+/* ------------------------------------------------------------------ */
+// Icon button with a tooltip that shows only while the pointer hovers it (and not right after a click)
+function IconBtn({ n, label, active, onClick, compact, tip = 'below' }) {
+  const [muted, setMuted] = useState(false);
+  const pos = tip === 'right' ? 'left-full top-1/2 ml-3 -translate-y-1/2' : 'left-1/2 top-full mt-1.5 -translate-x-1/4';
+  return (
+    <button onClick={(e) => { setMuted(true); onClick(e); }} onMouseLeave={() => setMuted(false)} aria-label={label}
+      className={`group relative grid ${compact ? 'h-11 w-11' : 'h-[52px] w-[52px]'} shrink-0 place-items-center rounded-xl text-neutral-100 transition ${active ? 'border border-fg/10 bg-fg/10' : 'border border-transparent hover:bg-fg/5'}`}>
+      <Ico n={n} size={compact ? 24 : 32} sw={compact ? 1.5 : 1.4} />
+      <span role="tooltip" className={`pointer-events-none absolute z-30 ${pos} whitespace-nowrap rounded-lg border border-fg/10 bg-ink-700 px-3 py-1.5 text-sm text-neutral-200 opacity-0 shadow-xl transition-opacity delay-100 ${muted ? '' : '[@media(hover:hover)]:group-hover:opacity-100'}`}>{label}</span>
+    </button>
+  );
+}
+function Sidebar({ view, onNew, onGraph, chats, recent, activeId, onSelect, onProject, onSettings, collapsed, onToggle, toast }) {
+  const [q, setQ] = useState('');
+  const [openP, setOpenP] = useState(false);
+  const [openR, setOpenR] = useState(true);
+  const searchRef = useRef(null);
+  const list = recent.filter((id) => chats[id].title.toLowerCase().includes(q.toLowerCase()));
+  const fade = 'transition-[opacity,visibility] duration-200';
+  return (
+    <aside style={{ width: collapsed ? 56 : 255 }} className="relative z-20 shrink-0 border-r border-fg/[.07] bg-ink-950 transition-[width] duration-200 ease-out">
+     <div aria-hidden={collapsed} className={`absolute inset-0 overflow-hidden ${fade} ${collapsed ? 'invisible opacity-0' : 'opacity-100'}`}>
+      <div className="flex h-full w-[255px] flex-col px-[18px] pb-4 pt-8">
+      <div className="mb-5 flex items-center gap-4 pl-1.5">
+        <IconBtn n="edit" label="New chat" onClick={onNew} />
+        <IconBtn n="graph" label="Chat graph" active={view === 'graph'} onClick={onGraph} />
+        <IconBtn n="chevsL" label={`Collapse sidebar (${MOD}B)`} onClick={onToggle} />
+      </div>
+      <label className="flex items-center gap-2.5 rounded-xl border border-fg/10 bg-ink-900 px-3.5 py-2.5 text-neutral-400 focus-within:border-fg/25">
+        <Ico n="search" size={19} />
+        <input ref={searchRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search..." className="w-full bg-transparent text-[15px] text-neutral-100 outline-none placeholder:text-neutral-400" />
+      </label>
+      <div className="mt-5 min-h-0 flex-1 overflow-y-auto">
+        <button onClick={() => setOpenP((v) => !v)} className="flex w-full items-center justify-between px-3 py-2 text-[16px] text-neutral-200">Projects<Ico n={openP ? 'chevUp' : 'chevDown'} size={19} /></button>
+        {openP && PROJECTS.map((p) => (
+          <button key={p.id} onClick={() => onProject(p)} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[14.5px] text-neutral-300 hover:bg-fg/5"><Ico n="folder" size={18} />{p.label}</button>
+        ))}
+        <button onClick={() => setOpenR((v) => !v)} className="mt-3 flex w-full items-center justify-between px-3 py-2 text-[16px] text-neutral-200">Recent chats<Ico n={openR ? 'chevUp' : 'chevDown'} size={19} /></button>
+        {openR && list.map((id) => (
+          <button key={id} onClick={() => onSelect(id)} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[15px] ${id === activeId && view === 'chat' ? 'bg-fg/[.07] text-fg' : 'text-neutral-300 hover:bg-fg/5'}`}>
+            <Ico n={chats[id].icon || 'chat'} size={18} className="shrink-0 text-neutral-400" /><span className="truncate">{chats[id].title}</span>
+          </button>
+        ))}
+        {openR && list.length === 0 && <div className="px-3 py-2 text-sm text-neutral-500">No chats match.</div>}
+      </div>
+      <div className="mt-3 border-t border-fg/[.07] pt-4">
+        <div className="mb-4 flex items-center justify-between px-1 text-[14.5px] text-neutral-300">
+          <button onClick={onSettings} className="flex items-center gap-2 hover:text-fg"><Ico n="gear" size={19} />Settings</button>
+          <button onClick={() => toast('Integrations isn’t wired up in this prototype')} className="flex items-center gap-2 hover:text-fg"><Ico n="puzzle" size={19} />Integrations</button>
+        </div>
+        <div className="flex items-center gap-3 px-1">
+          <div className="grid h-10 w-10 place-items-center rounded-full text-sm font-semibold text-white" style={{ background: 'linear-gradient(135deg,#6b7bff,#e2733f)' }}>B</div>
+          <span className="flex-1 text-[15px] text-neutral-100">Braxton</span>
+          <button onClick={() => toast('Profile menu isn’t wired up in this prototype')} className="text-neutral-400 hover:text-fg"><Ico n="user" size={19} /></button>
+        </div>
+      </div>
+      </div>
+     </div>
+     {/* slim rail (56px) */}
+     <div aria-hidden={!collapsed} className={`absolute inset-0 flex flex-col items-center gap-1.5 py-4 ${fade} ${collapsed ? 'opacity-100' : 'invisible opacity-0'}`}>
+      <IconBtn compact tip="right" n="chevsR" label={`Expand sidebar (${MOD}B)`} onClick={onToggle} />
+      <IconBtn compact tip="right" n="edit" label="New chat" onClick={onNew} />
+      <IconBtn compact tip="right" n="graph" label="Chat graph" active={view === 'graph'} onClick={onGraph} />
+      <IconBtn compact tip="right" n="search" label="Search" onClick={() => { onToggle(); setTimeout(() => searchRef.current && searchRef.current.focus(), 230); }} />
+      <div className="flex-1" />
+      <IconBtn compact tip="right" n="gear" label="Settings" onClick={onSettings} />
+      <button onClick={() => toast('Profile menu isn’t wired up in this prototype')} aria-label="Braxton" className="group relative mt-1 grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm font-semibold text-white" style={{ background: 'linear-gradient(135deg,#6b7bff,#e2733f)' }}>
+        B
+        <span role="tooltip" className="pointer-events-none absolute left-full top-1/2 z-30 ml-3 -translate-y-1/2 whitespace-nowrap rounded-lg border border-fg/10 bg-ink-700 px-3 py-1.5 text-sm font-normal text-neutral-200 opacity-0 shadow-xl transition-opacity delay-100 [@media(hover:hover)]:group-hover:opacity-100">Braxton</span>
+      </button>
+     </div>
+    </aside>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Browser panel                                                       */
+/* ------------------------------------------------------------------ */
+const Bars = ({ data, c }) => (
+  <div className="flex h-full items-end gap-[3px]">{data.map((v, i) => <i key={i} className="w-full rounded-t-[1px]" style={{ height: v + '%', background: Array.isArray(c) ? c[i % c.length] : c }} />)}</div>
+);
+function DashboardPreview() {
+  const nav = ['Trends', 'Reports', 'Settings', 'Users', 'Alerts', 'Billing'];
+  return (
+    <div className="flex h-full overflow-hidden rounded-lg border border-fg/10 bg-ink-950 text-[9px] text-neutral-400">
+      <div className="w-[84px] shrink-0 space-y-3 border-r border-fg/5 p-3">{nav.map((n, i) => <div key={n} className={`flex items-center gap-1.5 ${i === 0 ? 'text-fg' : ''}`}><i className="h-2 w-2 rounded-full border border-neutral-500" />{n}</div>)}</div>
+      <div className="grid flex-1 grid-cols-2 grid-rows-[auto_1fr_1fr] gap-2.5 p-3">
+        <div className="col-span-2 flex items-center justify-between"><span className="text-[12px] font-medium text-neutral-100">Analytics</span><span className="rounded border border-fg/10 px-2 py-0.5">Last 30 days</span></div>
+        <div className="rounded-md border border-fg/5 bg-fg/[.02] p-2"><div className="mb-1.5">Revenue</div><div className="h-[70%]"><Bars data={[30, 45, 38, 60, 52, 70, 64, 80, 58, 90]} c={['#3b4ee0', '#4f63f0']} /></div></div>
+        <div className="rounded-md border border-fg/5 bg-fg/[.02] p-2"><div className="mb-1.5">Sessions</div><div className="h-[70%]"><Bars data={[20, 35, 28, 55, 40, 62, 50, 74, 66, 58]} c={['#4f46e5', '#e2733f']} /></div></div>
+        <div className="rounded-md border border-fg/5 bg-fg/[.02] p-2"><div className="mb-1.5">Latency (ms)</div><div className="h-[70%]"><Bars data={[60, 48, 52, 40, 44, 35, 38, 30, 33, 28]} c="#5b5ff0" /></div></div>
+        <div className="rounded-md border border-fg/5 bg-fg/[.02] p-2 space-y-1.5"><div>Top pages</div>{['/dashboard 4,210', '/reports 2,980', '/settings 1,164'].map((r) => <div key={r} className="rounded bg-fg/[.04] px-1.5 py-1 text-neutral-300">{r}</div>)}</div>
+      </div>
+    </div>
+  );
+}
+function GithubPreview() {
+  const files = [['src', 'Add task routes'], ['tests', 'Cover empty title'], ['package.json', 'Bump deps'], ['README.md', 'Docs: setup'], ['.github', 'CI: node 20']];
+  return (
+    <div className="h-full overflow-hidden rounded-lg border border-fg/10 bg-ink-950 p-3.5 text-[10px] text-neutral-400">
+      <div className="flex items-center gap-1.5 text-[12px]"><Ico n="branch" size={14} /><span className="text-[#58a6ff]">braxton</span>/<b className="text-[#58a6ff]">taskflow</b><span className="ml-1 rounded-full border border-fg/15 px-1.5 text-[9px]">Public</span></div>
+      <div className="mt-3 overflow-hidden rounded-md border border-fg/10">
+        <div className="bg-fg/[.04] px-2.5 py-1.5 text-neutral-300">braxton · Fix cold start · 2 days ago</div>
+        {files.map(([n, m]) => <div key={n} className="flex justify-between border-t border-fg/10 px-2.5 py-1.5"><span className="flex items-center gap-1.5 text-neutral-200"><Ico n={n.includes('.') && n !== '.github' ? 'file' : 'folder'} size={12} />{n}</span><span>{m}</span></div>)}
+      </div>
+      <div className="mt-3 rounded-md border border-fg/10 p-3"><div className="mb-1.5 text-[12px] font-semibold text-neutral-100">TaskFlow</div>A tiny task API with a React dashboard. Run <code className="rounded bg-fg/10 px-1">npm run dev</code> to start.</div>
+    </div>
+  );
+}
+function DocsPreview() {
+  return (
+    <div className="flex h-full overflow-hidden rounded-lg border border-fg/10 bg-ink-950 text-[10px] text-neutral-400">
+      <div className="w-[96px] shrink-0 space-y-2 border-r border-fg/5 p-3"><div className="text-neutral-200">Guide</div>{['Intro', 'Install', 'Routing', 'Hooks', 'Deploy'].map((n, i) => <div key={n} className={i === 3 ? 'text-[#82aaff]' : ''}>{n}</div>)}</div>
+      <div className="flex-1 space-y-2.5 p-4"><div className="text-[15px] font-semibold text-neutral-100">Hooks</div><p>Use <code className="rounded bg-fg/10 px-1">useMemo</code> to cache expensive calculations between renders.</p>
+        <pre className="rounded-md border border-fg/10 bg-ink-950 p-2 font-mono text-[9px] text-neutral-300">{'const v = useMemo(() =>\n  compute(a, b), [a, b]);'}</pre><p>Only recompute when a dependency changes.</p></div>
+    </div>
+  );
+}
+const TAB_DEFS = [
+  { id: 't1', title: 'localhost:3000', url: 'http://localhost:3000/dashboard', icon: 'code', page: 'dash' },
+  { id: 't2', title: 'github.com', url: 'https://github.com/braxton/taskflow', icon: 'branch', page: 'gh' },
+  { id: 't3', title: 'docs', url: 'https://docs.example.dev/guide/hooks', icon: 'bag', page: 'docs' },
+];
+function BrowserPanel({ toast, hide }) {
+  const [tabs, setTabs] = useState(TAB_DEFS);
+  const [active, setActive] = useState('t1');
+  const [ctrl, setCtrl] = useState(true);
+  const [dev, setDev] = useState(true);
+  const [logs, setLogs] = useState(["console.log('AI Agent connected')", 'Compiling successful']);
+  const log = (l) => setLogs((x) => [...x.slice(-30), l]);
+  const cur = tabs.find((t) => t.id === active);
+  const pick = (t) => { setActive(t.id); log(`navigated → ${t.url}`); };
+  const close = (e, id) => {
+    e.stopPropagation();
+    const rest = tabs.filter((t) => t.id !== id); setTabs(rest);
+    if (active === id && rest.length) setActive(rest[0].id);
+  };
+  const add = () => { const id = 't' + Date.now(); setTabs([...tabs, { id, title: 'New tab', url: 'about:blank', icon: 'plus', page: 'blank' }]); setActive(id); };
+  const consoleRef = useRef(null);
+  useEffect(() => { if (consoleRef.current) consoleRef.current.scrollTop = consoleRef.current.scrollHeight; }, [logs, dev]);
+  return (
+    <section className={`${hide ? 'hidden' : 'hidden lg:flex'} min-h-0 min-w-[340px] max-w-[540px] flex-[42_1_0%] flex-col overflow-y-auto border-l border-fg/[.07] bg-ink-900`}>
+      <div className="flex shrink-0 items-end gap-0.5 overflow-x-auto border-b border-fg/[.07] bg-ink-950 px-2 pt-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {tabs.map((t) => (
+          <button key={t.id} onClick={() => pick(t)} className={`flex shrink-0 items-center gap-1 whitespace-nowrap rounded-t-lg border border-b-0 px-2 py-2.5 text-[12.5px] ${t.id === active ? 'border-fg/10 bg-ink-800 text-neutral-100' : 'border-transparent text-neutral-400 hover:text-neutral-200'}`}>
+            <Ico n={t.icon} size={14} className="max-[1180px]:hidden" /><span>{t.title}</span>
+            <span onClick={(e) => close(e, t.id)} className="rounded p-0.5 hover:bg-fg/10"><Ico n="x" size={12} /></span>
+          </button>
+        ))}
+        <button onClick={add} aria-label="New tab" className="mb-1.5 ml-auto grid h-8 w-8 shrink-0 place-items-center rounded-md text-neutral-300 hover:bg-fg/5"><Ico n="plus" size={19} /></button>
+      </div>
+      <div className="flex shrink-0 items-center gap-3 border-b border-fg/[.07] bg-ink-800 px-4 py-2.5 text-neutral-300">
+        <Ico n="arrowL" size={19} /><Ico n="arrowR" size={19} />
+        <div className="flex min-w-0 flex-1 items-center gap-2.5 rounded-full border border-fg/10 bg-ink-900 px-4 py-2 text-[14px]"><Ico n="lock" size={15} /><span className="truncate">{cur ? cur.url : ''}</span></div>
+        <Ico n="kebab" size={19} />
+      </div>
+      <div className="relative min-h-[240px] flex-1 p-4">
+        <div className="relative h-full">
+          {cur && cur.page === 'dash' && <DashboardPreview />}
+          {cur && cur.page === 'gh' && <GithubPreview />}
+          {cur && cur.page === 'docs' && <DocsPreview />}
+          {cur && cur.page === 'blank' && <div className="grid h-full place-items-center rounded-lg border border-fg/10 bg-ink-850 text-neutral-500">New tab</div>}
+          {!cur && <div className="grid h-full place-items-center rounded-lg border border-dashed border-fg/10 text-neutral-500">No open tabs</div>}
+          {cur && ctrl && (
+            <>
+              <div className="absolute left-[10%] top-[44%] flex items-center gap-4 rounded-lg border border-fg/10 bg-ink-700/95 px-4 py-2.5 text-[15px] text-neutral-100 shadow-xl">
+                AI controlling: Claude
+                <button onClick={() => { setCtrl(false); log('control released by user'); toast('You’re in control'); }} className="rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-white hover:bg-blue-500">Take over</button>
+              </div>
+              <div className="cursor-drift pointer-events-none absolute left-[55%] top-[50%]"><CursorIcon /></div>
+            </>
+          )}
+          {cur && !ctrl && (
+            <button onClick={() => { setCtrl(true); log('control handed to Claude'); }} className="absolute bottom-2 right-2 rounded-full border border-fg/10 bg-ink-700/95 px-3 py-1.5 text-xs text-neutral-300 hover:text-fg">You’re in control · Hand back to Claude</button>
+          )}
+        </div>
+      </div>
+      <div className="shrink-0 border-t border-fg/[.07] px-5 pb-4 pt-3.5">
+        <div className="flex items-center gap-3 text-[15px] text-neutral-200">
+          DevTools
+          <button onClick={() => setDev((v) => !v)} aria-label="Toggle DevTools" className={`relative h-6 w-11 rounded-full transition ${dev ? 'bg-accent' : 'bg-fg/15'}`}><i className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${dev ? 'left-[22px]' : 'left-0.5'}`} /></button>
+        </div>
+        {dev && (
+          <div ref={consoleRef} className="mt-3 h-[84px] overflow-y-auto rounded-lg border border-fg/10 bg-ink-950 px-4 py-2.5 font-mono text-[13.5px] leading-relaxed text-neutral-300">
+            {logs.map((l, i) => <div key={i}><span className="text-neutral-500">&gt;</span> {l}</div>)}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Pets: dock, bubbles, voice panel                                    */
+/* ------------------------------------------------------------------ */
+const PET_NAMES = { grok: 'Grok Bot', gpt: 'ChatGPT', claude: 'Claude' };
+function Bubble({ children, w = 'w-[280px]' }) {
+  return (
+    <div className={`relative ${w} rounded-2xl border border-fg/10 bg-ink-800 p-4 text-[14.5px] text-neutral-100 shadow-2xl`}>
+      <i className="absolute -top-1.5 right-8 h-3 w-3 rotate-45 border-l border-t border-fg/10 bg-ink-800" />
+      {children}
+    </div>
+  );
+}
+const Btn = ({ onClick, primary, children }) => (
+  <button onClick={onClick} className={`rounded-lg px-3.5 py-1.5 text-sm font-medium ${primary ? 'bg-accent text-white hover:bg-blue-500' : 'border border-fg/10 bg-fg/5 text-neutral-200 hover:bg-fg/10'}`}>{children}</button>
+);
+
+const VOICE_SCRIPT = [
+  ['you', 'Hey, can you summarize my meetings for today?'],
+  ['gpt', 'Sure. You have three: standup at 9:30, a design review at 1, and a 4 o’clock sync with Terri.'],
+  ['you', 'Move the design review to tomorrow morning.'],
+  ['gpt', 'Done. It’s now at 9 a.m. tomorrow, and I let the attendees know.'],
+  ['you', 'Thanks. Also remind me to send the offsite budget.'],
+  ['gpt', 'Reminder set for 3 p.m. Anything else?'],
+];
+function VoicePanel({ onEnd }) {
+  const [lines, setLines] = useState(VOICE_SCRIPT.slice(0, 2));
+  const [muted, setMuted] = useState(false);
+  const idx = useRef(2), box = useRef(null);
+  useEffect(() => {
+    const id = setInterval(() => { setLines((l) => [...l.slice(-20), VOICE_SCRIPT[idx.current++ % VOICE_SCRIPT.length]]); }, 2200);
+    return () => clearInterval(id);
+  }, []);
+  useEffect(() => { if (box.current) box.current.scrollTo({ top: box.current.scrollHeight, behavior: 'smooth' }); }, [lines]);
+  return (
+    <Bubble w="w-[300px]">
+      <div className="flex items-center gap-4">
+        <div className="relative h-14 w-14 shrink-0">
+          {!muted && <i className="orb-ring absolute inset-0 rounded-full border border-blue-400/60" />}
+          <div className="orb h-14 w-14 rounded-full" style={muted ? { animation: 'none', filter: 'grayscale(1)' } : undefined} />
+        </div>
+        <div><div className="font-medium">Voice mode</div><div className="text-xs text-neutral-400">{muted ? 'Muted' : 'Listening…'}</div></div>
+      </div>
+      <div ref={box} className="scroll-mask mt-3 h-[132px] space-y-2.5 overflow-y-auto pr-1 pt-4 text-[13px] leading-snug">
+        {lines.map(([who, t], i) => (
+          <div key={i}><div className={`text-[10.5px] uppercase tracking-wide ${who === 'you' ? 'text-neutral-500' : 'text-blue-400'}`}>{who === 'you' ? 'You' : 'ChatGPT'}</div><div className={who === 'you' ? 'text-neutral-300' : 'text-neutral-100'}>{t}</div></div>
+        ))}
+      </div>
+      <div className="mt-3 flex justify-end gap-2"><Btn onClick={() => setMuted((v) => !v)}>{muted ? 'Unmute' : 'Mute'}</Btn><Btn primary onClick={onEnd}>End</Btn></div>
+    </Bubble>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* App                                                                 */
+/* ------------------------------------------------------------------ */
+const MOD = /Mac|iPhone|iPad/.test(navigator.platform || '') ? '⌘' : 'Ctrl+';
+
+// A dropped-down bot: flies from its slot in the header, with its bubble fading/scaling in after it
+function PetOut({ id, leaving, onBack, children }) {
+  const btn = useRef(null), fly = useRef(null);
+  React.useLayoutEffect(() => {
+    const slot = document.querySelector(`[data-slot="${id}"]`);
+    if (!slot || !btn.current || !fly.current) return;
+    const a = slot.getBoundingClientRect(), b = btn.current.getBoundingClientRect();
+    fly.current.style.setProperty('--fx', a.left + a.width / 2 - (b.left + b.width / 2) + 'px');
+    fly.current.style.setProperty('--fy', a.top + a.height / 2 - (b.top + b.height / 2) + 'px');
+  }, [id]);
+  return (
+    <div className="pointer-events-auto flex flex-col items-end gap-2">
+      <button ref={btn} onClick={onBack} title="Send back to the dock" className="mr-4 block">
+        <span ref={fly} className={`block ${leaving ? 'fly-out' : 'fly-in'}`}><span className="pet-float block"><Char id={id} size={72} /></span></span>
+      </button>
+      <div className={leaving ? 'bubble-out' : 'bubble-in'}>{children}</div>
+    </div>
+  );
+}
+
+function CommandPalette({ commands, onClose }) {
+  const [q, setQ] = useState('');
+  const [sel, setSel] = useState(0);
+  const listRef = useRef(null);
+  const needle = q.trim().toLowerCase();
+  const list = commands.filter((c) => !needle || `${c.label} ${c.keywords || ''} ${c.group}`.toLowerCase().includes(needle));
+  useEffect(() => { setSel(0); }, [q]);
+  useEffect(() => { const el = listRef.current && listRef.current.querySelector('[data-sel="true"]'); if (el) el.scrollIntoView({ block: 'nearest' }); }, [sel]);
+  const run = (c) => { onClose(); c.run(); };
+  const onKey = (e) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setSel((s) => Math.min(s + 1, list.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setSel((s) => Math.max(s - 1, 0)); }
+    else if (e.key === 'Enter' && list[sel]) { e.preventDefault(); run(list[sel]); }
+  };
+  return (
+    <div className="fade-in fixed inset-0 z-[80] flex items-start justify-center bg-black/40 px-4 pt-[14vh]" onMouseDown={onClose}>
+      <div onMouseDown={(e) => e.stopPropagation()} className="pop-in w-[560px] max-w-full overflow-hidden rounded-2xl border border-fg/10 bg-ink-800 shadow-2xl">
+        <div className="flex items-center gap-3 border-b border-fg/10 px-4 py-3.5">
+          <Ico n="search" size={19} className="text-neutral-400" />
+          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onKey} placeholder="Search chats, switch model, open graph…"
+            className="min-w-0 flex-1 bg-transparent text-[15px] text-neutral-100 outline-none placeholder:text-neutral-400" />
+          <kbd className="rounded border border-fg/15 px-1.5 py-0.5 text-[11px] text-neutral-400">Esc</kbd>
+        </div>
+        <div ref={listRef} className="max-h-[340px] overflow-y-auto p-2">
+          {list.length === 0 && <div className="px-3 py-6 text-center text-sm text-neutral-500">No matches</div>}
+          {list.map((c, i) => (
+            <React.Fragment key={c.id}>
+              {(i === 0 || list[i - 1].group !== c.group) && <div className="px-3 pb-1 pt-2.5 text-[11px] uppercase tracking-wide text-neutral-500">{c.group}</div>}
+              <button data-sel={i === sel} onMouseEnter={() => setSel(i)} onClick={() => run(c)}
+                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[14.5px] ${i === sel ? 'bg-fg/[.08] text-fg' : 'text-neutral-300'}`}>
+                <Ico n={c.icon} size={18} className="shrink-0 text-neutral-400" />
+                <span className="flex-1 truncate">{c.label}</span>
+                {c.current && <Ico n="check" size={15} />}
+                {c.hint && <kbd className="rounded border border-fg/15 px-1.5 py-0.5 text-[11px] text-neutral-400">{c.hint}</kbd>}
+              </button>
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SettingsModal({ theme, setTheme, onClose }) {
+  const opt = (k, label, ic) => (
+    <button onClick={() => setTheme(k)} aria-pressed={theme === k} className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm transition ${theme === k ? 'bg-accent text-white' : 'text-neutral-300 hover:bg-fg/5'}`}><Ico n={ic} size={16} />{label}</button>
+  );
+  return (
+    <div className="fade-in fixed inset-0 z-[80] grid place-items-center bg-black/40 px-4" onMouseDown={onClose}>
+      <div onMouseDown={(e) => e.stopPropagation()} className="pop-in w-[420px] max-w-full rounded-2xl border border-fg/10 bg-ink-800 p-6 shadow-2xl">
+        <div className="flex items-center justify-between">
+          <div className="text-lg font-medium text-neutral-100">Settings</div>
+          <button onClick={onClose} aria-label="Close settings" className="text-neutral-400 hover:text-fg"><Ico n="x" size={18} /></button>
+        </div>
+        <div className="mt-5 text-[11px] uppercase tracking-wide text-neutral-500">Appearance</div>
+        <div className="mt-2 flex gap-1 rounded-xl border border-fg/10 bg-ink-850 p-1">{opt('dark', 'Dark', 'moon')}{opt('light', 'Light', 'sun')}</div>
+        <div className="mt-6 text-[11px] uppercase tracking-wide text-neutral-500">Keyboard shortcuts</div>
+        <ul className="mt-2 space-y-2 text-sm text-neutral-300">
+          {[[MOD + 'K', 'Command palette'], [MOD + 'N', 'New chat'], [MOD + 'G', 'Open / close the graph'], [MOD + 'B', 'Collapse / expand sidebar'], ['Esc', 'Close palette or open bot']].map(([k, d]) => (
+            <li key={k} className="flex items-center justify-between"><span>{d}</span><kbd className="rounded border border-fg/15 px-1.5 py-0.5 text-[11px] text-neutral-400">{k}</kbd></li>
+          ))}
+        </ul>
+        <div className="mt-6 flex justify-end"><Btn primary onClick={onClose}>Done</Btn></div>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [view, setView] = useState('chat');
+  const [theme, setThemeState] = useState(() => { try { return localStorage.getItem('trio-theme') === 'light' ? 'light' : 'dark'; } catch (e) { return 'dark'; } });
+  const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem('trio-sidebar') === 'collapsed'; } catch (e) { return false; } });
+  useEffect(() => { try { localStorage.setItem('trio-sidebar', collapsed ? 'collapsed' : 'expanded'); } catch (e) { /* storage unavailable */ } }, [collapsed]);
+  const toggleSidebar = () => setCollapsed((c) => !c);
+  const [palette, setPalette] = useState(false);
+  const [settings, setSettings] = useState(false);
+  useEffect(() => {
+    document.documentElement.classList.toggle('light', theme === 'light');
+    try { localStorage.setItem('trio-theme', theme); } catch (e) { /* storage unavailable */ }
+  }, [theme]);
+  const setTheme = (t) => {
+    const el = document.documentElement;
+    el.classList.add('theme-fade'); setThemeState(t);
+    setTimeout(() => el.classList.remove('theme-fade'), 320);
+  };
+  const [chats, setChats] = useState(INITIAL_CHATS);
+  const [recent, setRecent] = useState(['c0', 'c1', 'c2', 'c3']);
+  const [activeId, setActiveId] = useState('c0');
+  const [model, setModel] = useState('auto');
+  const [typing, setTyping] = useState(null);
+  const [toastMsg, setToastMsg] = useState(null);
+  const [pets, setPets] = useState({ grok: 'docked', gpt: 'docked', claude: 'docked' });
+  const [grokNotify, setGrokNotify] = useState(false);
+  const [fileReq, setFileReq] = useState(false);
+  const toastTimer = useRef(null);
+
+  const toast = useCallback((m) => { setToastMsg(m); clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToastMsg(null), 2600); }, []);
+
+  /* pets */
+  // Only one bot may be open: opening one sends any other open bot back to its dock spot first.
+  const sendOut = (id) => {
+    setPets((p) => Object.fromEntries(Object.entries(p).map(([k, v]) => [k, k === id ? 'out' : v === 'out' ? 'leaving' : v])));
+    setTimeout(() => setPets((p) => Object.fromEntries(Object.entries(p).map(([k, v]) => [k, v === 'leaving' ? 'docked' : v]))), 280);
+  };
+  const sendBack = (id) => {
+    setPets((p) => (p[id] === 'out' ? { ...p, [id]: 'leaving' } : p));
+    setTimeout(() => setPets((p) => (p[id] === 'leaving' ? { ...p, [id]: 'docked' } : p)), 280);
+  };
+  const sendAllBack = () => {
+    setPets((p) => Object.fromEntries(Object.entries(p).map(([k, v]) => [k, v === 'out' ? 'leaving' : v])));
+    setTimeout(() => setPets((p) => Object.fromEntries(Object.entries(p).map(([k, v]) => [k, v === 'leaving' ? 'docked' : v]))), 280);
+  };
+  // keyboard shortcuts (handler is re-assigned each render so it always sees fresh state)
+  const keyHandler = useRef(null);
+  useEffect(() => {
+    const h = (e) => keyHandler.current && keyHandler.current(e);
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, []);
+  const simNotif = () => setGrokNotify(true);
+  const simFile = () => { setFileReq(true); sendOut('claude'); };
+
+  /* chats */
+  const newChat = () => {
+    const id = 'n' + Date.now();
+    setChats((c) => ({ ...c, [id]: { id, title: 'New chat', icon: 'chat', messages: [] } }));
+    setRecent((r) => [id, ...r]); setActiveId(id); setView('chat');
+  };
+  const toggleGraph = () => setView((v) => (v === 'graph' ? 'chat' : 'graph'));
+  const openNode = (n) => {
+    const src = n;
+    let id = 'g-' + src.id;
+    if (!chats[id]) {
+      let msgs, title;
+      if (src.kind === 'chat') {
+        title = src.title;
+        const m = src.pair ? src.pair[0] : src.model;
+        msgs = [{ role: 'user', text: `Let's pick up where we left off on "${src.title}".` }, { role: 'assistant', model: m, text: `Sure — last time (${src.date}) we were working on ${src.title.toLowerCase()} for ${src.project}. ${fakeReply(m, src.title)}` }];
+      } else {
+        title = src.kind === 'hub' ? src.label : 'Me';
+        msgs = [{ role: 'assistant', model: 'claude', text: src.kind === 'hub' ? `Project overview: ${src.label} has ${src.count} chats across the assistants. Ask me for a summary or the next steps.` : 'This is you: who you are, what you’re working on, and how you like to work. Every project in the graph connects back here.' }];
+      }
+      setChats((c) => ({ ...c, [id]: { id, title, icon: 'chat', messages: msgs } }));
+    }
+    setRecent((r) => [id, ...r.filter((x) => x !== id)]);
+    setActiveId(id); setView('chat');
+    if (src.kind === 'chat') setModel(src.pair ? 'auto' : src.model);
+  };
+  const send = (text) => {
+    const chatId = activeId, m = resolveModel(model, text);
+    setChats((c) => {
+      const ch = c[chatId];
+      return { ...c, [chatId]: { ...ch, title: ch.messages.length === 0 ? snippet(text).slice(0, 28) : ch.title, messages: [...ch.messages, { role: 'user', text }] } };
+    });
+    setRecent((r) => [chatId, ...r.filter((x) => x !== chatId)]);
+    setTyping({ chatId, model: m });
+    setTimeout(() => {
+      setChats((c) => ({ ...c, [chatId]: { ...c[chatId], messages: [...c[chatId].messages, { role: 'assistant', model: m, text: fakeReply(m, text) }] } }));
+      setTyping((t) => (t && t.chatId === chatId ? null : t));
+    }, 900 + Math.random() * 600);
+  };
+
+  keyHandler.current = (e) => {
+    if (e.key === 'Escape') {
+      if (palette) setPalette(false);
+      else if (settings) setSettings(false);
+      else sendAllBack();
+      return;
+    }
+    if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+    const k = e.key.toLowerCase();
+    if (k === 'k') { e.preventDefault(); setSettings(false); setPalette((v) => !v); }
+    else if (k === 'n') { e.preventDefault(); setPalette(false); newChat(); }
+    else if (k === 'g') { e.preventDefault(); setPalette(false); toggleGraph(); }
+    else if (k === 'b') { e.preventDefault(); toggleSidebar(); }
+  };
+  const commands = [
+    { id: 'new', group: 'Actions', label: 'New chat', icon: 'edit', hint: MOD + 'N', run: newChat },
+    { id: 'graph', group: 'Actions', label: view === 'graph' ? 'Close chat graph' : 'Open chat graph', keywords: 'graph map network', icon: 'graph', hint: MOD + 'G', run: toggleGraph },
+    ...['auto', ...MODEL_KEYS].map((k) => ({ id: 'm-' + k, group: 'Model', label: `Switch model: ${k === 'auto' ? 'Auto' : MODELS[k].name}`, icon: 'at', current: model === k, run: () => setModel(k) })),
+    ...recent.map((id) => ({ id: 'c-' + id, group: 'Chats', label: chats[id].title, keywords: chats[id].messages.map((m) => m.text).join(' '), icon: chats[id].icon || 'chat', run: () => { setActiveId(id); setView('chat'); } })),
+  ];
+
+  const chat = chats[activeId];
+  const slot = (id) => {
+    const st = pets[id];
+    const badge = (id === 'grok' && grokNotify) || (id === 'claude' && fileReq);
+    return (
+      <div key={id} data-slot={id} className="relative h-6 w-6">
+        {st === 'docked' ? (
+          <button title={PET_NAMES[id]} onClick={() => sendOut(id)} className="lift relative grid h-6 w-6 place-items-center">
+            <span className={id === 'grok' && grokNotify ? 'pet-bounce block' : 'block'}><Char id={id} size={24} /></span>
+            {badge && <i className="absolute -right-1 -top-1 h-2 w-2 rounded-full border border-ink-900 bg-red-500" />}
+          </button>
+        ) : (
+          <button title={`Send ${PET_NAMES[id]} back`} onClick={() => sendBack(id)} className="outline-in h-6 w-6 rounded-lg border-2 border-dashed border-neutral-500 transition-colors hover:border-fg" aria-label={`Return ${PET_NAMES[id]} to the dock`} />
+        )}
+      </div>
+    );
+  };
+  const demoBtn = (label, onClick) => (
+    <button onClick={onClick} className="rounded-full border border-fg/10 bg-ink-850 px-3.5 py-1.5 text-xs text-neutral-300 hover:border-fg/25 hover:text-fg">{label}</button>
+  );
+
+  return (
+    <div className="flex h-dvh w-full flex-col overflow-hidden bg-ink-950 font-sans text-neutral-200">
+      <div className="relative flex min-h-0 flex-1 overflow-hidden bg-ink-900">
+        <Sidebar view={view} onNew={newChat} onGraph={toggleGraph} chats={chats} recent={recent}
+          activeId={activeId} onSelect={(id) => { setActiveId(id); setView('chat'); }} onProject={(p) => openNode(getGraph().byId[p.id])} onSettings={() => setSettings(true)} collapsed={collapsed} onToggle={toggleSidebar} toast={toast} />
+        <div className={`flex min-h-0 min-w-0 flex-col ${view === 'graph' ? 'flex-1' : 'flex-[58_1_0%]'}`}>
+          {/* slim header with the dock */}
+          <div className="relative z-10 flex h-11 shrink-0 items-center justify-center border-b border-fg/[.07] bg-ink-900">
+            <div className="flex h-8 items-center gap-5 rounded-full border border-fg/10 bg-ink-850 px-4">{MODEL_KEYS.map(slot)}</div>
+          </div>
+          <div className={view === 'graph' ? 'hidden' : 'flex min-h-0 flex-1'}>
+            <ChatView key={activeId} chat={chat} model={model} setModel={setModel} typing={typing && typing.chatId === activeId ? typing.model : null}
+              onSend={send} onVoice={() => sendOut('gpt')} toast={toast} />
+          </div>
+          {view === 'graph' && <GraphView onOpen={openNode} theme={theme} />}
+        </div>
+        <BrowserPanel toast={toast} hide={view === 'graph'} />
+        {/* demo toolbar, floating over the bottom-right of the main panel */}
+        <div className="absolute bottom-3 right-3 z-40 flex items-center gap-2">
+          {demoBtn('Simulate notification', simNotif)}
+          {demoBtn('Simulate file request', simFile)}
+        </div>
+      </div>
+
+      {/* pets dropped to the top right */}
+      <div className="pointer-events-none fixed right-5 top-4 z-50 flex flex-col items-end gap-3">
+        {MODEL_KEYS.filter((id) => pets[id] !== 'docked').map((id) => (
+          <PetOut key={id} id={id} leaving={pets[id] === 'leaving'} onBack={() => sendBack(id)}>
+            {id === 'grok' && (
+              <Bubble>
+                {grokNotify ? (<>
+                  <div className="font-medium">New Slack message from Terri</div>
+                  <div className="mt-1 text-sm text-neutral-400">“Hey, do you have a minute to look at the offsite agenda?”</div>
+                  <div className="mt-3 flex gap-2"><Btn primary onClick={() => { setGrokNotify(false); sendBack('grok'); toast('Opened Slack · Terri'); }}>Open</Btn><Btn onClick={() => { setGrokNotify(false); sendBack('grok'); }}>Dismiss</Btn></div>
+                </>) : (<>
+                  <div className="font-medium">All caught up</div>
+                  <div className="mt-1 text-sm text-neutral-400">No new notifications. Use “Simulate notification” to see one.</div>
+                  <div className="mt-3"><Btn onClick={() => sendBack('grok')}>Close</Btn></div>
+                </>)}
+              </Bubble>
+            )}
+            {id === 'gpt' && <VoicePanel onEnd={() => sendBack('gpt')} />}
+            {id === 'claude' && (
+              <Bubble>
+                {fileReq ? (<>
+                  <div className="font-medium">Claude wants to read 2 files</div>
+                  <ul className="mt-2 space-y-1.5 font-mono text-[12.5px] text-neutral-300">
+                    {['src/components/Dashboard.tsx', 'package.json'].map((f) => <li key={f} className="flex items-center gap-2 rounded-md bg-fg/5 px-2.5 py-1.5"><Ico n="file" size={14} />{f}</li>)}
+                  </ul>
+                  <div className="mt-3 flex gap-2"><Btn primary onClick={() => { setFileReq(false); sendBack('claude'); toast('Allowed: Claude can read 2 files'); }}>Allow</Btn><Btn onClick={() => { setFileReq(false); sendBack('claude'); toast('Denied file access'); }}>Deny</Btn></div>
+                </>) : (<>
+                  <div className="font-medium">No pending requests</div>
+                  <div className="mt-1 text-sm text-neutral-400">Claude will ask here before it opens any files.</div>
+                  <div className="mt-3"><Btn onClick={() => sendBack('claude')}>Close</Btn></div>
+                </>)}
+              </Bubble>
+            )}
+          </PetOut>
+        ))}
+      </div>
+
+      {palette && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}
+      {settings && <SettingsModal theme={theme} setTheme={setTheme} onClose={() => setSettings(false)} />}
+
+      {toastMsg && <div key={toastMsg} className="toast fixed bottom-6 left-1/2 z-[60] rounded-full border border-fg/10 bg-ink-700 px-4 py-2 text-sm text-neutral-100 shadow-xl">{toastMsg}</div>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+<script>window.TRIO_IMG = {"grok": "data:image/png;base64,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", "gpt": "data:image/png;base64,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", "claude": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKAAAABkCAYAAAABtjuPAAAFRElEQVR42u2dv44cRRDGv6ru3bUPkEPnCBkQRhARkCACRIRIkE4OcIjEC+BHsPADEBEikRCBnSA5IEFOEIiAhAdwggjQgVe301UEs3t7t95/c9e7Mzv9/aSTRnerup2Zb6q6eqqrBZn56YvPfHYsIghWH7uAHDgaAt69/1XWOxlzf8nr/gyQCoABDoDC6w2O69ltxh0+L1t8xs59rukx7e3bnsJaUUkjTFZ8Sdf6Z+W/b3q86XRobzf2Oi7AuQgXhChW/5ADxg5DgOrKe9VH+cmBeEBCOhCCCWEIJiUKkBCGYMIQTEhLHpAXlrQ6BmQIJgzBhCGYEIZgwhBM+JBjf/WAJgb1PT1B0/9jWk3LvbT3wlMYDHF67joVoy3c0vp3JlqeAOcXJc8FXz6xXV/Y4FMRWixkAlwBBwIMcEWaCUywIEQr1wPm8n6GiH+GEbAjqEeIP/+JNKwQBDianGBgp+dE2E9PqA5UMsRTB0ajl6ApnTvfiw++wHDD/oOiYgi+DC4V7n79eKvPPvz0/WJebUcDPv9mu+vy/d33mITsA7FyEh/xZlNiXZ4WY7qKvq9kYzUM6cC4kSGYEIbg8hCGYMLwW0wINlycjCXMgnk6BD1+F0wRMgQzC+4wqcQQzILUbmXBxc0DMglgCGYIJiWHYGu5UpgeuPAQTEhLAlRvJwTPm6D3vyy/ScN373hSGPuShFRahjuvFIAbJ6LXVIZm80CNHlypul/8ls0DWivFCLsYS8qTe8ceIJk6oCuSO+BxQZBXOWGbrnozwOZXQEXO1ogFU0zCtJO7l7EcM7ghRdlYHS1Jsq6MMzFEW35fK6ldTzBgokD0efW2L2Tj6sBEFdGhSADcQ768K1MWXH9hnXfZl+VBPmlJUz9aL8aSCKTNTj/3BkHqevG+LPGQSepjW3TBvnD/HIihkLDF3BHdnCLizSR8lEi5AmThAGlzxR49IGEIJhQgIRQgoQAJoQAJBUgIBUgoQEIoQEIBEkIBkv4RPWM3A/XaTv+rklF8x61cdiLEMEjItoWKCltz9J2B5Wk+lWQHDTSf3Lvj9ID95Z0H3wqbExG01ebjQHrD8GYRZsGEG1YTsm8BeoQaHSthCCZlCtDqNhqEMAsmDMGEMAsmDMGE0AMSjgEJYQgmDMGEMAST/u0Tgm2qZXO/KeGbF3CbhjmDhJWv4/zCdl66YSxpG0u25xux5LGHVhs26pZDmNmOAOvPJ7e9QdLuC/A0GEyW72UhPpWIb7ebUaXr98UQr1dVBVckubq9tpltabC2479r3SdfK1Sypgu+GMTiNBplsAdAdvCOP7sAf/j9r5WZsTiQVDHyE3z45msY2Xjt06l2Dd/98Sfgw+cu4pk9URyFZ/jgjVtXstcVPrl9c+3fAyqM5UU8/PUX/IsbCNNdk2bDnrPzF4NijOO3bgNyemV7LgcSgr989Hirr/rx66/4pq09kp7iwaOft7L30asvZ7XXngDvrB9Bu2KEMe7/+NtW53H89q2s9pgFo/9rbtd5cRds3B1pl/YoQNK4Ez3nAcn2YyJb/yZJvPl4LLc9ChD93o61pDdJFCBDJgVIyi3moAAJBUh2R9e346UAGc4pQLI7Jh3PqilA9LcDKceABJfZxr6kMBx5yw9rzJb7rYULPSC5RM1grpAuTgGSHY7/hGPA1a4/58V2due/VHFDsWNAV1lYTKSdsocWixGGafXDZAFoUhk/jrUIV3rchvZ6I8CTOIAmnc/ULylnbtKV/SQOECxks9daCE4voDKr13SIwKBnRaPqAKTC39diI3uW0V5u/gcdxwcN8QeShQAAAABJRU5ErkJggg=="};</script>
+</body>
+</html>
